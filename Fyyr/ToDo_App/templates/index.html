@@ -41,7 +41,7 @@
     </head>
     <body>
         <div class="lists-wrapper">
-            <h3>ToDo App</h3>
+            <h3>ToDo Lists</h3>
             <form id="lists-form">
                 <input type="text" id="list-name" name="list-name" />
                 <input type="submit" value="Create" />
@@ -61,11 +61,12 @@
         </div>
 
         <div class="todos-wrapper">
-            <h4>{{ active_list.name }}</h4>
+            <h3>ToDo Items</h3>
             <form id="todos-form">
                 <input type="text" id="todo-description" name="todo-description" />
                 <input type="submit" value="Create" />
             </form>
+            <h4>{{ active_list.name }}</h4>
             <div id="todos-error" class="hidden">Something went wrong!</div>
             <ul id="todos">
                {% for todo in todos %}
