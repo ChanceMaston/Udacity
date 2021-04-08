@@ -16,6 +16,7 @@ class TodoList(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(), nullable=False)
     todos = db.relationship('Todo', backref='list', lazy=True, cascade='all, delete-orphan')
+    completed = db.Column(db.Boolean, nullable=False, default=False)
 
     def __repr__(self):
         return f'<TodoList {self.id} {self.name}>'
@@ -45,6 +46,26 @@ def set_completed_todo(todo_id):
     return redirect(url_for('index'))
 
 
+@app.route('/lists/<list_id>/set-completed', methods=['POST'])
+def set_completed_list(list_id):
+    try:
+        completed = request.get_json()['completed']
+        # First update the list itself.
+        todo_list = TodoList.query.get(list_id)
+        todo_list.completed = completed
+
+        # Update all the relevant items as well.
+        todo_items = Todo.query.filter_by(list_id=list_id)
+        todo_items.update(values={'completed':completed})
+
+        db.session.commit()
+    except:
+        db.session.rollback()
+    finally:
+        db.session.close()
+    return redirect(url_for('index'))
+
+
 @app.route('/todos/<todo_id>', methods=['DELETE'])
 def delete_item(todo_id):
     try:
@@ -54,6 +75,20 @@ def delete_item(todo_id):
         db.session.rollback()
     finally:
         db.session.close()
+    return jsonify({ 'success': True })
+
+
+@app.route('/lists/<list_id>', methods=['DELETE'])
+def delete_list(list_id):
+    try:
+        Todo.query.filter_by(list_id=list_id).delete()
+        TodoList.query.filter_by(id=list_id).delete()
+        db.session.commit()
+    except:
+        db.session.rollback()
+    finally:
+        db.session.close()
+        index()
     return jsonify({ 'success': True })
 
 
