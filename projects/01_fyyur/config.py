@@ -7,6 +7,6 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 DEBUG = True
 
 # Connect to the database
-SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://chancemaston@localhost:5432/Fyyr'
+SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://chancemaston@localhost:5432/Fyyur'
 print(f'SQLALCHEMY_DATABASE_URI: {SQLALCHEMY_DATABASE_URI}')
 SQLALCHEMY_TRACK_MODIFICATIONS = False

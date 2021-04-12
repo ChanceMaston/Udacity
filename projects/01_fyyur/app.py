@@ -2,6 +2,7 @@
 # Imports
 #----------------------------------------------------------------------------#
 
+import datetime
 import json
 import dateutil.parser
 import babel
@@ -102,7 +103,7 @@ class Show(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
-    date = db.Column(db.String)
+    datetime = db.Column(db.String)
     artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
     venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
 
@@ -111,66 +112,86 @@ class Show(db.Model):
 
 
 class Genre(db.Model):
-  __tablename__ = 'genre'
+    __tablename__ = 'genre'
 
-  id = db.Column(db.Integer, primary_key=True)
-  name = db.Column(db.String)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String)
 
-  def __repr__(self):
-    return f'<Genre {self.id} {self.name}>'
+    def __repr__(self):
+        return f'<Genre {self.id} {self.name}>'
 
 
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
 def format_datetime(value, format='medium'):
-  date = dateutil.parser.parse(value)
-  if format == 'full':
-      format="EEEE MMMM, d, y 'at' h:mma"
-  elif format == 'medium':
-      format="EE MM, dd, y h:mma"
-  return babel.dates.format_datetime(date, format, locale='en')
+    date = dateutil.parser.parse(value)
+    if format == 'full':
+        format="EEEE MMMM, d, y 'at' h:mma"
+    elif format == 'medium':
+        format="EE MM, dd, y h:mma"
+    return babel.dates.format_datetime(date, format, locale='en')
 
 app.jinja_env.filters['datetime'] = format_datetime
+
 
 #----------------------------------------------------------------------------#
 # Controllers.
 #----------------------------------------------------------------------------#
-
 @app.route('/')
 def index():
-  return render_template('pages/home.html')
+    return render_template('pages/home.html')
 
 
+#  ----------------------------------------------------------------
 #  Venues
 #  ----------------------------------------------------------------
-
 @app.route('/venues')
 def venues():
-  # TODO: replace with real venues data.
-  #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
-    "city": "San Francisco",
-    "state": "CA",
-    "venues": [{
-      "id": 1,
-      "name": "The Musical Hop",
-      "num_upcoming_shows": 0,
-    }, {
-      "id": 3,
-      "name": "Park Square Live Music & Coffee",
-      "num_upcoming_shows": 1,
-    }]
-  }, {
-    "city": "New York",
-    "state": "NY",
-    "venues": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }]
-  return render_template('pages/venues.html', areas=data);
+    # Step 0: Create empty data object.
+    data = []
+
+    # Step 1: Pull venue data from database.
+    venues = Venue.query.all()
+
+    # Step 2: Cycle through each venue
+    for venue in venues:
+        # Step 2a: Initialize dictionary objects for venue data storage.
+        venue_dict = {}
+        city_state = {}
+
+        # Step 2b: locate the city and state of this venue.
+        venue_city = venue.city
+        venue_state = venue.state
+
+        # Step 2c: Check if City/State combo already exists.
+        index = 0
+        found_city = False
+        for city_dict in data:
+            if city_dict.get('city', '') == venue_city and city_dict.get('state', '') == venue_state:
+              # Found a dictionary that matches this venue's city/state combination.
+                found_city = True  # Found the city
+                break  # break out of the for loop.
+            else:
+              index += 1  # Increase index to keep track of what dictionary we are on.
+
+        # Step 2d: Create venue object.
+        venue_dict["id"] = venue.id
+        venue_dict["name"] = venue.name
+        # TODO - fix this once I can see what the data structures look like in debug.
+        venue_dict["num_upcoming_shows"] = 0
+
+        # Step 2e: If City/State combo already exists, add venue to its 'venues' list
+        if found_city:
+            data[index]["venues"].append(venue_dict)
+        # Step 2f: Otherwise, create new city/state object in data object.
+        else:
+            city_state["city"] = venue_city
+            city_state["state"] = venue_state
+            city_state["venues"] = [venue_dict]
+            data.append(city_state)
+
+    return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
