@@ -2,7 +2,9 @@
 # Imports
 #----------------------------------------------------------------------------#
 
+import sys
 import datetime
+import traceback
 import json
 import dateutil.parser
 import babel
@@ -180,9 +182,6 @@ def compare_datetime(value1, value2):
             return 1
 
 def parse_shows(shows_to_parse=None):
-    if not shows_to_parse:
-        raise Exception("Tried to parse shows with no input! (app.py, line 180")
-
     past_shows = []
     future_shows = []
     current_datetime = datetime.now()
@@ -312,20 +311,68 @@ def show_venue(venue_id):
 
 @app.route('/venues/create', methods=['GET'])
 def create_venue_form():
-  form = VenueForm()
-  return render_template('forms/new_venue.html', form=form)
+    form = VenueForm()
+    genre_choices = Genre.query.all()
+    genre_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_list.append((genre.name, genre.name))
+    form.genres.choices = genre_list
+    return render_template('forms/new_venue.html', form=form)
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
-  # TODO: insert form data as a new Venue record in the db, instead
-  # TODO: modify data to be the data object returned from db insertion
+    error = False
+    try:
+        name = request.form.get('name', '')
+        city = request.form.get('city', '')
+        state = request.form.get('state', '')
+        address = request.form.get('address', '')
+        phone = request.form.get('phone', '')
+        genres = request.form.getlist('genres')
+        facebook_link = request.form.get('facebook_link', '')
+        image_link = request.form.get('image_link', '')
+        website_link = request.form.get('website_link', '')
+        seeking_talent = request.form.get('seeking_talent', '')
+        if seeking_talent == 'y':
+            seeking_talent = True
+        else:
+            seeking_talent = False
+        seeking_description = request.form.get('seeking_description', '')
 
-  # on successful db insert, flash success
-  flash('Venue ' + request.form['name'] + ' was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+        # Make a venue object
+        venue = Venue(name=name,
+                      city=city,
+                      state=state,
+                      address=address,
+                      phone=phone,
+                      facebook_link=facebook_link,
+                      image_link=image_link,
+                      website_link=website_link,
+                      looking_for_talent=seeking_talent,
+                      seeking_description=seeking_description)
+
+        # Make a genre object for each given genre.
+        for genre_instance in genres:
+            db_genre_instance = Genre(name=genre_instance)
+            venue.genres.append(db_genre_instance)
+
+        db.session.add(venue)
+        db.session.commit()
+    except Exception as e:
+        error = True
+        tb = traceback.format_exc()
+        db.session.rollback()
+        print(sys.exc_info())
+    finally:
+        db.session.close()
+    if error:
+        flash('An error occurred. Venue ' + request.form.get('name', '') + ' could not be listed.')
+    else:
+        # on successful db insert, flash success
+        flash('Venue ' + request.form['name'] + ' was successfully listed!')
+
+    return render_template('pages/home.html')
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
