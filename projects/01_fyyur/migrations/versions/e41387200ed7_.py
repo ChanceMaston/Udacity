@@ -59,7 +59,7 @@ def upgrade():
     )
     op.create_table('shows',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('datetime', sa.String(), nullable=True),
+    sa.Column('start_time', sa.String(), nullable=True),
     sa.Column('artist_id', sa.Integer(), nullable=False),
     sa.Column('venue_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['artist_id'], ['artists.id'], ),
@@ -290,7 +290,7 @@ def upgrade():
     # Populate show table.
     op.execute("INSERT INTO shows (venue_id, \
                                    artist_id, \
-                                   datetime) \
+                                   start_time) \
                             VALUES \
                                   ((SELECT venues.id from venues where venues.name='The Musical Hop'), \
                                    (SELECT artists.id from artists where artists.name='Guns N Petals'),\
@@ -298,7 +298,7 @@ def upgrade():
 
     op.execute("INSERT INTO shows (venue_id, \
                                    artist_id, \
-                                   datetime) \
+                                   start_time) \
                             VALUES \
                                     ((SELECT venues.id from venues where venues.name='Park Square Live Music & Coffee'), \
                                     (SELECT artists.id from artists where artists.name='Matt Quevedo'),\
@@ -306,7 +306,7 @@ def upgrade():
 
     op.execute("INSERT INTO shows (venue_id, \
                                    artist_id, \
-                                   datetime) \
+                                   start_time) \
                             VALUES \
                                    ((SELECT venues.id from venues where venues.name='Park Square Live Music & Coffee'), \
                                    (SELECT artists.id from artists where artists.name='The Wild Sax Band'),\
@@ -314,7 +314,7 @@ def upgrade():
 
     op.execute("INSERT INTO shows (venue_id, \
                                    artist_id, \
-                                   datetime) \
+                                   start_time) \
                              VALUES \
                                    ((SELECT venues.id from venues where venues.name='Park Square Live Music & Coffee'), \
                                    (SELECT artists.id from artists where artists.name='The Wild Sax Band'),\
@@ -322,7 +322,7 @@ def upgrade():
 
     op.execute("INSERT INTO shows (venue_id, \
                                    artist_id, \
-                                   datetime) \
+                                   start_time) \
                             VALUES \
                                    ((SELECT venues.id from venues where venues.name='Park Square Live Music & Coffee'), \
                                    (SELECT artists.id from artists where artists.name='The Wild Sax Band'),\
@@ -330,7 +330,7 @@ def upgrade():
 
     op.execute("INSERT INTO shows (venue_id, \
                                    artist_id, \
-                                   datetime) \
+                                   start_time) \
                             VALUES \
                                    ((SELECT venues.id from venues where venues.name='The Dueling Pianos Bar'), \
                                    (SELECT artists.id from artists where artists.name='Matt Quevedo'),\

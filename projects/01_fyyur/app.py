@@ -102,12 +102,16 @@ class Show(db.Model):
     __tablename__ = 'shows'
 
     id = db.Column(db.Integer, primary_key=True)
-    datetime = db.Column(db.String)
+    start_time = db.Column(db.String)
+    artist_name = db.Column(db.String)
+    artist_image_link = db.Column(db.String(500))
+    venue_name = db.Column(db.String)
+    venue_image_link = db.Column(db.String(500))
     artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), nullable=False)
     venue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), nullable=False)
 
     def __repr__(self):
-        return f'<Show {self.id} {self.name}>'
+        return f'<Show {self.id} {self.start_time}>'
 
 
 class Genre(db.Model):
@@ -133,6 +137,64 @@ def format_datetime(value, format='medium'):
 
 app.jinja_env.filters['datetime'] = format_datetime
 
+def compare_datetime(value1, value2):
+    [value1_wd, value1_month, value1_day, value1_year, value1_time] = value1.split()
+    [value2_wd, value2_month, value2_day, value2_year, value2_time] = value2.split()
+
+    # First check the year
+    if value1_year == value2_year:
+        # Years are the same, check month
+        if value1_month == value2_month:
+            # Years and Months same, check day
+            if value1_day == value2_day:
+                # Year/Month/Day same, check time
+                if 'PM' in value1_time:
+                    value1_time = int(value1_time.replace('PM', '').replace(':', '')) + 1200
+                else:
+                    value1_time = int(value1_time.replace('AM', '').replace(':', ''))
+                if 'PM' in value2_time:
+                    value2_time = int(value2_time.replace('PM', '').replace(':', '')) + 1200
+                else:
+                    value2_time = int(value2_time.replace('AM', '').replace(':', ''))
+                if value1_time == value2_time:
+                    return 0  # Times are exact same
+                else:  # Years/month/day same,time different.
+                    if value1_time > value2_time:
+                        return -1
+                    else:
+                        return 1
+            else:  # Years and month same, day different.
+                if value1_day > value2_day:
+                    return -1
+                else:
+                    return 1
+        else: # Years are same, months are different
+            if value1_month > value2_month:
+                return -1
+            else:
+                return 1
+    else:  # Years are different.
+        if value1_year > value2_year:
+            return -1
+        else:
+            return 1
+
+def parse_shows(shows_to_parse=None):
+    if not shows_to_parse:
+        raise Exception("Tried to parse shows with no input! (app.py, line 180")
+
+    past_shows = []
+    future_shows = []
+    current_datetime = datetime.now()
+
+    for show in shows_to_parse:
+        datetime_comparison = compare_datetime(format_datetime(str(current_datetime)), format_datetime(show.start_time))
+        if datetime_comparison > 0:  # Show is in the future
+            future_shows.append(show)
+        else:
+            past_shows.append(show)
+
+    return [past_shows, future_shows]
 
 #----------------------------------------------------------------------------#
 # Controllers.
@@ -159,9 +221,10 @@ def venues():
         venue_dict = {}
         city_state = {}
 
-        # Step 2b: locate the city and state of this venue.
+        # Step 2b: locate the city, state, and shows of this venue.
         venue_city = venue.city
         venue_state = venue.state
+        venue_shows = venue.shows
 
         # Step 2c: Check if City/State combo already exists.
         index = 0
@@ -177,8 +240,8 @@ def venues():
         # Step 2d: Create venue object.
         venue_dict["id"] = venue.id
         venue_dict["name"] = venue.name
-        # TODO - fix this once I can see what the data structures look like in debug.
-        venue_dict["num_upcoming_shows"] = 0
+        [past_shows, future_shows] = parse_shows(venue_shows)
+        venue_dict["num_upcoming_shows"] = len(future_shows)
 
         # Step 2e: If City/State combo already exists, add venue to its 'venues' list
         if found_city:
@@ -205,8 +268,8 @@ def search_venues():
         data_object = {}
         data_object["id"] = venue.id
         data_object["name"] = venue.name
-        # TODO num_upcoming_shows
-        data_object["num_upcoming_shows"] = 0
+        [past_shows, future_shows] = parse_shows(venue.shows)
+        data_object["num_upcoming_shows"] = len(future_shows)
         data.append(data_object)
 
     response={
@@ -221,11 +284,8 @@ def show_venue(venue_id):
     # First, get the venue connected to the given venue id.
     venue = Venue.query.filter_by(id=venue_id).first()
 
-    # TODO - implement gathering of upcoming shows/past for the venue.
-    upcoming_shows = []
-    past_shows = []
+    [past_shows, upcoming_shows] = parse_shows(venue.shows)
 
-    # TODO - Implement genres gathering
     genres = venue.genres
 
     data = {
@@ -280,17 +340,14 @@ def delete_venue(venue_id):
 #  ----------------------------------------------------------------
 @app.route('/artists')
 def artists():
-  # TODO: replace with real data returned from querying the database
-  data=[{
-    "id": 4,
-    "name": "Guns N Petals",
-  }, {
-    "id": 5,
-    "name": "Matt Quevedo",
-  }, {
-    "id": 6,
-    "name": "The Wild Sax Band",
-  }]
+  data = []
+  artists_all = Artist.query.all()
+  for artist_instance in artists_all:
+      artist_dict = {
+          "id": artist_instance.id,
+          "name": artist_instance.name
+      }
+      data.append(artist_dict)
   return render_template('pages/artists.html', artists=data)
 
 @app.route('/artists/search', methods=['POST'])
@@ -312,24 +369,25 @@ def search_artists():
 def show_artist(artist_id):
     # First, get the venue connected to the given venue id.
     artist = Artist.query.filter_by(id=artist_id).first()
+    shows = Show.query.filter_by(artist_id=artist_id).all()
 
-    # TODO - implement gathering of upcoming shows/past for the venue.
-    upcoming_shows = []
-    past_shows = []
+    [past_shows, upcoming_shows] = parse_shows(shows_to_parse=shows)
 
-    # TODO - Implement genres gathering
     genres = artist.genres
+    genre_list = []
+    for genre in genres:
+        genre_list.append(genre.name)
 
     data = {
         "id": artist.id,
         "name": artist.name,
-        "genres": genres,
+        "genres": genre_list,
         "city": artist.city,
         "state": artist.state,
         "phone": artist.phone,
         "website": artist.website_link,
         "facebook_link": artist.facebook_link,
-        "seeking_venue": artist.looking_for_talent,
+        "seeking_venue": artist.seeking_venue,
         "seeking_description": artist.seeking_description,
         "image_link": artist.image_link,
         "past_shows": past_shows,
@@ -419,44 +477,22 @@ def create_artist_submission():
 @app.route('/shows')
 def shows():
   # displays list of shows at /shows
-  # TODO: replace with real venues data.
-  #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
-    "venue_id": 1,
-    "venue_name": "The Musical Hop",
-    "artist_id": 4,
-    "artist_name": "Guns N Petals",
-    "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-    "start_time": "2019-05-21T21:30:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 5,
-    "artist_name": "Matt Quevedo",
-    "artist_image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-    "start_time": "2019-06-15T23:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-01T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-08T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-15T20:00:00.000Z"
-  }]
+
+  data = []
+  all_shows = Show.query.all()
+  for show_instance in all_shows:
+      venue_instance = Venue.query.filter_by(id=show_instance.venue_id).first()
+      artist_instance = Artist.query.filter_by(id=show_instance.artist_id).first()
+      show_dict = {
+          "venue_id": venue_instance.id,
+          "venue_name": venue_instance.name,
+          "artist_id": artist_instance.id,
+          "artist_name": artist_instance.name,
+          "artist_image_link": artist_instance.image_link,
+          "start_time": show_instance.start_time
+      }
+      data.append(show_dict)
+
   return render_template('pages/shows.html', shows=data)
 
 @app.route('/shows/create')
