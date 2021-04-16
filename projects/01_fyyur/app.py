@@ -217,6 +217,7 @@ def venues():
 
     # Step 1: Pull venue data from database.
     venues = Venue.query.all()
+    form = VenueForm()
 
     # Step 2: Cycle through each venue
     for venue in venues:
@@ -256,11 +257,12 @@ def venues():
             city_state["venues"] = [venue_dict]
             data.append(city_state)
 
-    return render_template('pages/venues.html', areas=data);
+    return render_template('pages/venues.html', areas=data, form=form)
 
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
+    form = VenueForm()
     search_term = '%' + request.form.get('search_term', '') + '%'
     venues = Venue.query.filter(Venue.name.ilike(search_term)).all()
     count = len(venues)
@@ -279,22 +281,26 @@ def search_venues():
       "count": count,
       "data": data
     }
-    return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+    return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''), form=form)
 
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
+    form = VenueForm()
     # First, get the venue connected to the given venue id.
     venue = Venue.query.filter_by(id=venue_id).first()
 
     [past_shows, upcoming_shows] = parse_shows(venue.shows)
 
     genres = venue.genres
+    genre_list = []
+    for genre in genres:
+        genre_list.append(genre.name)
 
     data = {
         "id": venue.id,
         "name": venue.name,
-        "genres": genres,
+        "genres": genre_list,
         "address": venue.address,
         "city": venue.city,
         "state": venue.state,
@@ -308,7 +314,7 @@ def show_venue(venue_id):
         "upcoming_shows": upcoming_shows
     }
 
-    return render_template('pages/show_venue.html', venue=data)
+    return render_template('pages/show_venue.html', venue=data, form=form)
 
 #  Create Venue
 #  ----------------------------------------------------------------
@@ -396,11 +402,12 @@ def create_venue_submission():
         # on successful db insert, flash success
         flash('Venue ' + request.form['name'] + ' was successfully listed!')
 
-    return render_template('pages/home.html')
+    return render_template('pages/home.html', form=formset)
 
 @app.route('/venues/<venue_id>/delete', methods=['GET', 'DELETE'])
 def delete_venue(venue_id):
     name="(NAME UNOBTAINABLE)"
+    form = VenueForm()
     try:
         error=False
         venue_instance = Venue.query.filter_by(id=venue_id).first()
@@ -419,13 +426,14 @@ def delete_venue(venue_id):
     else:
         # on successful db insert, flash success
         flash('Venue ' + name + ' was successfully deleted!')
-    return render_template('pages/home.html')
+    return render_template('pages/home.html', form=form)
 
 
 #  Artists
 #  ----------------------------------------------------------------
 @app.route('/artists')
 def artists():
+    form = ArtistForm()
     data = []
     artists_all = Artist.query.all()
     for artist_instance in artists_all:
@@ -434,10 +442,14 @@ def artists():
             "name": artist_instance.name
         }
         data.append(artist_dict)
-    return render_template('pages/artists.html', artists=data)
+    return render_template('pages/artists.html', artists=data, form=form)
+
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
+    form = ArtistForm()
+
+
     # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
     # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
     # search for "band" should return "The Wild Sax Band".
@@ -449,10 +461,12 @@ def search_artists():
           "num_upcoming_shows": 0,
         }]
     }
-    return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
+    return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''), form=form)
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
+    form = ArtistForm()
+
     # First, get the venue connected to the given venue id.
     artist = Artist.query.filter_by(id=artist_id).first()
     shows = Show.query.filter_by(artist_id=artist_id).all()
@@ -480,7 +494,7 @@ def show_artist(artist_id):
         "upcoming_shows": upcoming_shows
     }
 
-    return render_template('pages/show_artist.html', artist=data)
+    return render_template('pages/show_artist.html', artist=data, form=form)
 
 #  Update
 #  ----------------------------------------------------------------
@@ -621,10 +635,11 @@ def create_artist_submission():
         # on successful db insert, flash success
         flash('Artist ' + request.form['name'] + ' was successfully listed!')
 
-    return render_template('pages/home.html')
+    return render_template('pages/home.html', form=formset)
 
 @app.route('/artists/<artist_id>/delete', methods=['GET', 'DELETE'])
 def delete_artist(artist_id):
+    form = ArtistForm()
     name="(NAME UNOBTAINABLE)"
     try:
         error=False
@@ -644,7 +659,7 @@ def delete_artist(artist_id):
     else:
         # on successful db insert, flash success
         flash('Artist ' + name + ' was successfully deleted!')
-    return render_template('pages/home.html')
+    return render_template('pages/home.html', form=form)
 
 
 #  Shows
@@ -652,7 +667,7 @@ def delete_artist(artist_id):
 
 @app.route('/shows')
 def shows():
-  # displays list of shows at /shows
+    form = ShowForm()
 
     data = []
     all_shows = Show.query.all()
@@ -669,7 +684,7 @@ def shows():
         }
         data.append(show_dict)
 
-    return render_template('pages/shows.html', shows=data)
+    return render_template('pages/shows.html', shows=data, form=form)
 
 
 @app.route('/shows/create')
@@ -740,6 +755,7 @@ def create_show_submission():
 
 @app.route('/shows/<show_id>/delete', methods=['GET', 'DELETE'])
 def delete_show(show_id):
+    form = ShowForm()
     show_name="(NAME UNOBTAINABLE)"
     try:
         error=False
@@ -759,7 +775,7 @@ def delete_show(show_id):
     else:
         # on successful db insert, flash success
         flash('Show ' + show_name + ' was successfully deleted!')
-    return render_template('pages/home.html')
+    return render_template('pages/home.html', form=form)
 
 
 @app.errorhandler(404)
