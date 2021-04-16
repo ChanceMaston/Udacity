@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField
-from wtforms.validators import DataRequired, AnyOf, URL, ValidationError
+from wtforms.validators import DataRequired, AnyOf, URL, ValidationError, Optional
 
 class ShowForm(FlaskForm):
     artist_id = StringField(
@@ -17,6 +17,50 @@ class ShowForm(FlaskForm):
     )
 
 class VenueForm(FlaskForm):
+    # Inline validator for Phone, does not need to be called explicitly as long as name follows 'validate_fieldname' format.
+    def validate_phone(form, field):
+        if field.data:
+            error = False
+            split_number = field.data.split('-')
+            # Check general format
+            if len(split_number) == 3:
+                # Check section format
+                if (len(split_number[0]) == 3) and (len(split_number[1]) == 3) and (len(split_number[2]) == 4):
+                    # Check that all are numbers
+                    if split_number[0].isdecimal() and split_number[1].isdecimal() and split_number[2].isdecimal():
+                        pass
+                    else:
+                        error = True
+                else:
+                    error = True
+            else:
+                error = True
+            if error:
+                raise ValidationError('Phone Number must be of format XXX-XXX-XXXX')
+        else:
+            pass  # No phone number present.
+
+    def validate_facebook_link(form, field):
+        if field.data:
+            error = False
+            split_fb_link = field.data.split('/')
+            if len(split_fb_link) > 3:
+                condition1 = split_fb_link[0] == 'https:'
+                condition2 = split_fb_link[1] == ''
+                condition3 = split_fb_link[2] == 'www.facebook.com'
+                condition4 = split_fb_link[3] != ''
+
+                if condition1 and condition2 and condition3 and condition4:
+                    pass
+                else:
+                    error = True
+            else:
+                error = True
+
+            if error:
+                raise ValidationError('Facebook Link must be of format https://www.facebook.com/XXXX')
+        else:
+            pass  # No facebook link given
     genre_choices = []
     name = StringField(
         'name', validators=[DataRequired()]
@@ -84,17 +128,16 @@ class VenueForm(FlaskForm):
         'address', validators=[DataRequired()]
     )
     phone = StringField(
-        'phone'
+        'phone', validators=[validate_phone]
     )
     image_link = StringField(
         'image_link'
     )
     genres = SelectMultipleField(
-        'genres', validators=[DataRequired()],
-        choices=[]
+        'genres', validators=[DataRequired()], choices=genre_choices
     )
     facebook_link = StringField(
-        'facebook_link', validators=[URL()]
+        'facebook_link', validators=[validate_facebook_link, Optional()]
     )
     website_link = StringField(
         'website_link'
@@ -110,14 +153,14 @@ class VenueForm(FlaskForm):
 
 class ArtistForm(FlaskForm):
     # Inline validator for Phone, does not need to be called explicitly as long as name follows 'validate_fieldname' format.
-    def validate_phone(self, field):
+    def validate_phone(form, field):
         if field.data:
             error = False
-            split_number = field.data.split()
+            split_number = field.data.split('-')
             # Check general format
             if len(split_number) == 3:
                 # Check section format
-                if len(split_number[0] == 3) and len(split_number[1] == 3) and len(split_number[2] == 4):
+                if (len(split_number[0]) == 3) and (len(split_number[1]) == 3) and (len(split_number[2]) == 4):
                     # Check that all are numbers
                     if split_number[0].isdecimal() and split_number[1].isdecimal() and split_number[2].isdecimal():
                         pass
@@ -132,7 +175,7 @@ class ArtistForm(FlaskForm):
         else:
             pass  # No phone number present.
 
-    def validate_facebook_link(self, field):
+    def validate_facebook_link(form, field):
         if field.data:
             error = False
             split_fb_link = field.data.split('/')
@@ -150,10 +193,11 @@ class ArtistForm(FlaskForm):
                 error = True
 
             if error:
-                raise ValidationError('Facebook Link must be of formathttps://www.facebook.com/XXXX')
+                raise ValidationError('Facebook Link must be of format https://www.facebook.com/XXXX')
         else:
             pass  # No facebook link given
 
+    genre_choices = []
     name = StringField(
         'name', validators=[DataRequired()]
     )
@@ -217,37 +261,16 @@ class ArtistForm(FlaskForm):
         ]
     )
     phone = StringField(
-        'phone', validators=[]
+        'phone', validators=[validate_phone, Optional()]
     )
     image_link = StringField(
         'image_link'
     )
     genres = SelectMultipleField(
-        'genres', validators=[DataRequired()],
-        choices=[
-            ('Alternative', 'Alternative'),
-            ('Blues', 'Blues'),
-            ('Classical', 'Classical'),
-            ('Country', 'Country'),
-            ('Electronic', 'Electronic'),
-            ('Folk', 'Folk'),
-            ('Funk', 'Funk'),
-            ('Hip-Hop', 'Hip-Hop'),
-            ('Heavy Metal', 'Heavy Metal'),
-            ('Instrumental', 'Instrumental'),
-            ('Jazz', 'Jazz'),
-            ('Musical Theatre', 'Musical Theatre'),
-            ('Pop', 'Pop'),
-            ('Punk', 'Punk'),
-            ('R&B', 'R&B'),
-            ('Reggae', 'Reggae'),
-            ('Rock n Roll', 'Rock n Roll'),
-            ('Soul', 'Soul'),
-            ('Other', 'Other'),
-        ]
+        'genres', validators=[DataRequired()], choices=genre_choices
      )
     facebook_link = StringField(
-        'facebook_link', validators=[URL()]
+        'facebook_link', validators=[validate_facebook_link, Optional]
      )
 
     website_link = StringField(

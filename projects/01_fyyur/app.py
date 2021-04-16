@@ -16,6 +16,9 @@ import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
+
+from flask_wtf import CSRFProtect
+csrf = CSRFProtect()
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -23,6 +26,7 @@ from forms import *
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
+csrf.init_app(app)
 db = SQLAlchemy(app)
 
 migrate = Migrate(app=app, db=db)
@@ -65,7 +69,7 @@ class Venue(db.Model):
     phone = db.Column(db.String(120))
     genres = db.relationship('Genre',
                              secondary=venue_genre_items,
-                             backref=db.backref('venues', lazy=True))
+                             backref=db.backref('venues', cascade="all", lazy=True))
     facebook_link = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     website_link = db.Column(db.String(120))
@@ -88,7 +92,7 @@ class Artist(db.Model):
     phone = db.Column(db.String(120))
     genres = db.relationship('Genre',
                              secondary=artist_genre_items,
-                             backref=db.backref('artists', lazy=True))
+                             backref=db.backref('artists', cascade='all', lazy=True))
     facebook_link = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     website_link = db.Column(db.String(120))
@@ -323,41 +327,80 @@ def create_venue_form():
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
     error = False
+    formset = VenueForm()
+    genre_choices = Genre.query.all()
+    genre_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_list.append((genre.name, genre.name))
+    formset.genres.choices = genre_list
+    if formset.validate_on_submit():
+        try:
+            name = request.form.get('name', '')
+            city = request.form.get('city', '')
+            state = request.form.get('state', '')
+            address = request.form.get('address', '')
+            phone = request.form.get('phone', '')
+            genres = request.form.getlist('genres')
+            facebook_link = request.form.get('facebook_link', '')
+            image_link = request.form.get('image_link', '')
+            website_link = request.form.get('website_link', '')
+            seeking_talent = request.form.get('seeking_talent', '')
+            if seeking_talent == 'y':
+                seeking_talent = True
+            else:
+                seeking_talent = False
+            seeking_description = request.form.get('seeking_description', '')
+
+            # Make a venue object
+            venue = Venue(name=name,
+                          city=city,
+                          state=state,
+                          address=address,
+                          phone=phone,
+                          facebook_link=facebook_link,
+                          image_link=image_link,
+                          website_link=website_link,
+                          looking_for_talent=seeking_talent,
+                          seeking_description=seeking_description)
+
+            # Make a genre object for each given genre.
+            for genre_instance in genres:
+                db_genre_instance = Genre(name=genre_instance)
+                venue.genres.append(db_genre_instance)
+
+            db.session.add(venue)
+            db.session.commit()
+        except Exception as e:
+            error = True
+            tb = traceback.format_exc()
+            db.session.rollback()
+            print(sys.exc_info())
+        finally:
+            db.session.close()
+    else:
+        error = True
+    if error:
+        form_errors = formset.errors
+        message = 'An error occurred. Venue ' + request.form.get('name', '') + ' could not be listed:'
+        for error_item in form_errors:
+            message = message + ', \n'
+            message = message + form_errors[error_item][0]
+        flash(message)
+    else:
+        # on successful db insert, flash success
+        flash('Venue ' + request.form['name'] + ' was successfully listed!')
+
+    return render_template('pages/home.html')
+
+@app.route('/venues/<venue_id>/delete', methods=['GET', 'DELETE'])
+def delete_venue(venue_id):
+    name="(NAME UNOBTAINABLE)"
     try:
-        name = request.form.get('name', '')
-        city = request.form.get('city', '')
-        state = request.form.get('state', '')
-        address = request.form.get('address', '')
-        phone = request.form.get('phone', '')
-        genres = request.form.getlist('genres')
-        facebook_link = request.form.get('facebook_link', '')
-        image_link = request.form.get('image_link', '')
-        website_link = request.form.get('website_link', '')
-        seeking_talent = request.form.get('seeking_talent', '')
-        if seeking_talent == 'y':
-            seeking_talent = True
-        else:
-            seeking_talent = False
-        seeking_description = request.form.get('seeking_description', '')
-
-        # Make a venue object
-        venue = Venue(name=name,
-                      city=city,
-                      state=state,
-                      address=address,
-                      phone=phone,
-                      facebook_link=facebook_link,
-                      image_link=image_link,
-                      website_link=website_link,
-                      looking_for_talent=seeking_talent,
-                      seeking_description=seeking_description)
-
-        # Make a genre object for each given genre.
-        for genre_instance in genres:
-            db_genre_instance = Genre(name=genre_instance)
-            venue.genres.append(db_genre_instance)
-
-        db.session.add(venue)
+        error=False
+        venue_instance = Venue.query.filter_by(id=venue_id).first()
+        name = venue_instance.name
+        db.session.delete(venue_instance)
         db.session.commit()
     except Exception as e:
         error = True
@@ -367,21 +410,15 @@ def create_venue_submission():
     finally:
         db.session.close()
     if error:
-        flash('An error occurred. Venue ' + request.form.get('name', '') + ' could not be listed.')
+        flash('An error occurred. Venue ' + name + ' could not be deleted.')
     else:
         # on successful db insert, flash success
-        flash('Venue ' + request.form['name'] + ' was successfully listed!')
-
+        flash('Venue ' + name + ' was successfully deleted!')
     return render_template('pages/home.html')
 
-@app.route('/venues/<venue_id>', methods=['DELETE'])
-def delete_venue(venue_id):
-  # TODO: Complete this endpoint for taking a venue_id, and using
-  # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
 
-  # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
-  # clicking that button delete it from the db then redirect the user to the homepage
-  return None
+    # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
+    # clicking that button delete it from the db then redirect the user to the homepage
 
 #  Artists
 #  ----------------------------------------------------------------
