@@ -327,6 +327,7 @@ def create_venue_form():
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
     error = False
+    caught_exception = None
     formset = VenueForm()
     genre_choices = Genre.query.all()
     genre_list = []
@@ -373,6 +374,7 @@ def create_venue_submission():
             db.session.commit()
         except Exception as e:
             error = True
+            caught_exception = e.args[0]
             tb = traceback.format_exc()
             db.session.rollback()
             print(sys.exc_info())
@@ -386,6 +388,9 @@ def create_venue_submission():
         for error_item in form_errors:
             message = message + ', \n'
             message = message + form_errors[error_item][0]
+        if caught_exception:
+            message = message + ', \n'
+            message = message + caught_exception
         flash(message)
     else:
         # on successful db insert, flash success
@@ -416,9 +421,6 @@ def delete_venue(venue_id):
         flash('Venue ' + name + ' was successfully deleted!')
     return render_template('pages/home.html')
 
-
-    # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
-    # clicking that button delete it from the db then redirect the user to the homepage
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -539,20 +541,110 @@ def edit_venue_submission(venue_id):
 
 @app.route('/artists/create', methods=['GET'])
 def create_artist_form():
-  form = ArtistForm()
-  return render_template('forms/new_artist.html', form=form)
+    form = ArtistForm()
+    genre_choices = Genre.query.all()
+    genre_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_list.append((genre.name, genre.name))
+    form.genres.choices = genre_list
+    return render_template('forms/new_artist.html', form=form)
+
 
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
-  # called upon submitting the new artist listing form
-  # TODO: insert form data as a new Venue record in the db, instead
-  # TODO: modify data to be the data object returned from db insertion
+    error = False
+    caught_exception = False
+    formset = ArtistForm()
+    genre_choices = Genre.query.all()
+    genre_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_list.append((genre.name, genre.name))
+    formset.genres.choices = genre_list
+    if formset.validate_on_submit():
+        try:
+            name = request.form.get('name', '')
+            city = request.form.get('city', '')
+            state = request.form.get('state', '')
+            phone = request.form.get('phone', '')
+            genres = request.form.getlist('genres')
+            facebook_link = request.form.get('facebook_link', '')
+            image_link = request.form.get('image_link', '')
+            website_link = request.form.get('website_link', '')
+            seeking_venue = request.form.get('seeking_venue', '')
+            if seeking_venue == 'y':
+                seeking_venue = True
+            else:
+                seeking_venue = False
+            seeking_description = request.form.get('seeking_description', '')
 
-  # on successful db insert, flash success
-  flash('Artist ' + request.form['name'] + ' was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-  return render_template('pages/home.html')
+            # Make a venue object
+            artist = Artist(name=name,
+                            city=city,
+                            state=state,
+                            phone=phone,
+                            facebook_link=facebook_link,
+                            image_link=image_link,
+                            website_link=website_link,
+                            seeking_venue=seeking_venue,
+                            seeking_description=seeking_description)
+
+            # Make a genre object for each given genre.
+            for genre_instance in genres:
+                db_genre_instance = Genre(name=genre_instance)
+                artist.genres.append(db_genre_instance)
+
+            db.session.add(artist)
+            db.session.commit()
+        except Exception as e:
+            error = True
+            caught_exception = e.args[0]
+            tb = traceback.format_exc()
+            db.session.rollback()
+            print(sys.exc_info())
+        finally:
+            db.session.close()
+    else:
+        error = True
+    if error:
+        form_errors = formset.errors
+        message = 'An error occurred. Artist ' + request.form.get('name', '') + ' could not be listed:'
+        for error_item in form_errors:
+            message = message + ', \n'
+            message = message + form_errors[error_item][0]
+        if caught_exception:
+            message = message + ', \n'
+            message = message + caught_exception
+        flash(message)
+    else:
+        # on successful db insert, flash success
+        flash('Artist ' + request.form['name'] + ' was successfully listed!')
+
+    return render_template('pages/home.html')
+
+@app.route('/artists/<artist_id>/delete', methods=['GET', 'DELETE'])
+def delete_artist(artist_id):
+    name="(NAME UNOBTAINABLE)"
+    try:
+        error=False
+        artist_instance = Artist.query.filter_by(id=artist_id).first()
+        name = artist_instance.name
+        db.session.delete(artist_instance)
+        db.session.commit()
+    except Exception as e:
+        error = True
+        tb = traceback.format_exc()
+        db.session.rollback()
+        print(sys.exc_info())
+    finally:
+        db.session.close()
+    if error:
+        flash('An error occurred. Artist ' + name + ' could not be deleted.')
+    else:
+        # on successful db insert, flash success
+        flash('Artist ' + name + ' was successfully deleted!')
+    return render_template('pages/home.html')
 
 
 #  Shows

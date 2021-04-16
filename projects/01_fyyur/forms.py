@@ -150,7 +150,6 @@ class VenueForm(FlaskForm):
     )
 
 
-
 class ArtistForm(FlaskForm):
     # Inline validator for Phone, does not need to be called explicitly as long as name follows 'validate_fieldname' format.
     def validate_phone(form, field):
@@ -270,7 +269,7 @@ class ArtistForm(FlaskForm):
         'genres', validators=[DataRequired()], choices=genre_choices
      )
     facebook_link = StringField(
-        'facebook_link', validators=[validate_facebook_link, Optional]
+        'facebook_link', validators=[validate_facebook_link, Optional()]
      )
 
     website_link = StringField(
