@@ -448,20 +448,26 @@ def artists():
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
     form = ArtistForm()
+    search_term = '%' + request.form.get('search_term', '') + '%'
+    artists = Artist.query.filter(Artist.name.ilike(search_term)).all()
+    count = len(artists)
 
+    # Build Data object
+    data = []
+    for artist in artists:
+        data_object = {}
+        data_object["id"] = artist.id
+        data_object["name"] = artist.name
+        [past_shows, future_shows] = parse_shows(artist.shows)
+        data_object["num_upcoming_shows"] = len(future_shows)
+        data.append(data_object)
 
-    # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-    # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
-    # search for "band" should return "The Wild Sax Band".
-    response={
-        "count": 1,
-        "data": [{
-          "id": 4,
-          "name": "Guns N Petals",
-          "num_upcoming_shows": 0,
-        }]
+    response = {
+        "count": count,
+        "data": data
     }
     return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''), form=form)
+
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
@@ -501,54 +507,222 @@ def show_artist(artist_id):
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
     form = ArtistForm()
+    # Obtain artist object based on artist id.
+    db_artist = Artist.query.filter_by(id=artist_id).first()
+    genres = db_artist.genres
+    genre_list = []
+    for genre in genres:
+        genre_list.append(genre.name)
+    genre_choices = Genre.query.all()
+    genre_choice_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_choice_list.append((genre.name, genre.name))
+    form.genres.choices = genre_choice_list
     artist={
-        "id": 4,
-        "name": "Guns N Petals",
-        "genres": ["Rock n Roll"],
-        "city": "San Francisco",
-        "state": "CA",
-        "phone": "326-123-5000",
-        "website": "https://www.gunsnpetalsband.com",
-        "facebook_link": "https://www.facebook.com/GunsNPetals",
-        "seeking_venue": True,
-        "seeking_description": "Looking for shows to perform at in the San Francisco Bay Area!",
-        "image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80"
+        'id': db_artist.id,
+        'name': db_artist.name,
+        'genres': genre_list,
+        'city': db_artist.city,
+        'state': db_artist.state,
+        'phone': db_artist.phone,
+        'website': db_artist.website_link,
+        'facebook_link': db_artist.facebook_link,
+        'seeking_venue': db_artist.seeking_venue,
+        'seeking_description': db_artist.seeking_description,
+        'image_link': db_artist.image_link
     }
-    # TODO: populate form with fields from artist with ID <artist_id>
+
     return render_template('forms/edit_artist.html', form=form, artist=artist)
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
-    # TODO: take values from the form submitted, and update existing
-    # artist record with ID <artist_id> using the new attributes
+    error = False
+    caught_exception = False
+    formset = ArtistForm()
+    genre_choices = Genre.query.all()
+    genre_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_list.append((genre.name, genre.name))
+    formset.genres.choices = genre_list
+    if formset.validate_on_submit():
+        try:
+            name = request.form.get('name', '')
+            city = request.form.get('city', '')
+            state = request.form.get('state', '')
+            phone = request.form.get('phone', '')
+            genres = request.form.getlist('genres')
+            facebook_link = request.form.get('facebook_link', '')
+            image_link = request.form.get('image_link', '')
+            website_link = request.form.get('website_link', '')
+            seeking_venue = request.form.get('seeking_venue', '')
+            if seeking_venue == 'y':
+                seeking_venue = True
+            else:
+                seeking_venue = False
+            seeking_description = request.form.get('seeking_description', '')
 
-    return redirect(url_for('show_artist', artist_id=artist_id))
+            # Grab the artist object
+            artist = Artist.query.filter_by(id=artist_id).first()
+
+            # Modify the values of the artist entry.
+            artist.name = name
+            artist.city = city
+            artist.state = state
+            artist.phone = phone
+            artist.facebook_link = facebook_link
+            artist.image_link = image_link
+            artist.website_link = website_link
+            artist.seeking_venue = seeking_venue
+            artist.seeking_description = seeking_description
+
+            # Clear the genre's associated with the artist to make way for new ones.
+            artist.genres.clear()
+
+            # Make a genre object for each given genre.
+            for genre_instance in genres:
+                db_genre_instance = Genre(name=genre_instance)
+                artist.genres.append(db_genre_instance)
+
+            print("1")
+            db.session.commit()
+        except Exception as e:
+            error = True
+            caught_exception = e.args[0]
+            tb = traceback.format_exc()
+            db.session.rollback()
+            print(sys.exc_info())
+        finally:
+            db.session.close()
+    else:
+        error = True
+    if error:
+        form_errors = formset.errors
+        message = 'An error occurred. Artist ' + request.form.get('name', '') + ' could not be modified:'
+        for error_item in form_errors:
+            message = message + ', \n'
+            message = message + form_errors[error_item][0]
+        if caught_exception:
+            message = message + ', \n'
+            message = message + caught_exception
+        flash(message)
+    else:
+        # on successful db insert, flash success
+        flash('Artist ' + request.form['name'] + ' was successfully modified!')
+
+    return redirect(url_for('show_artist', artist_id=artist_id, form=formset))
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
     form = VenueForm()
-    venue={
-        "id": 1,
-        "name": "The Musical Hop",
-        "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
-        "address": "1015 Folsom Street",
-        "city": "San Francisco",
-        "state": "CA",
-        "phone": "123-123-1234",
-        "website": "https://www.themusicalhop.com",
-        "facebook_link": "https://www.facebook.com/TheMusicalHop",
-        "seeking_talent": True,
-        "seeking_description": "We are on the lookout for a local artist to play every two weeks. Please call us.",
-        "image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60"
+    # Obtain artist object based on artist id.
+    db_venue = Venue.query.filter_by(id=venue_id).first()
+    genres = db_venue.genres
+    genre_list = []
+    for genre in genres:
+        genre_list.append(genre.name)
+    genre_choices = Genre.query.all()
+    genre_choice_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_choice_list.append((genre.name, genre.name))
+    form.genres.choices = genre_choice_list
+    venue = {
+        "id": db_venue.id,
+        "name": db_venue.name,
+        "genres": genre_list,
+        "address": db_venue.address,
+        "city": db_venue.city,
+        "state": db_venue.state,
+        "phone": db_venue.phone,
+        "website": db_venue.website_link,
+        "facebook_link": db_venue.facebook_link,
+        "seeking_talent": db_venue.looking_for_talent,
+        "seeking_description": db_venue.seeking_description,
+        "image_link": db_venue.image_link
     }
-    # TODO: populate form with values from venue with ID <venue_id>
     return render_template('forms/edit_venue.html', form=form, venue=venue)
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
-    # TODO: take values from the form submitted, and update existing
-    # venue record with ID <venue_id> using the new attributes
-    return redirect(url_for('show_venue', venue_id=venue_id))
+    error = False
+    caught_exception = False
+    formset = VenueForm()
+    genre_choices = Genre.query.all()
+    genre_list = []
+    for genre in genre_choices:
+        # Have to make a list of tuples as first value is code variable while second is the string to be displayed .
+        genre_list.append((genre.name, genre.name))
+    formset.genres.choices = genre_list
+    if formset.validate_on_submit():
+        try:
+            name = request.form.get('name', '')
+            city = request.form.get('city', '')
+            state = request.form.get('state', '')
+            phone = request.form.get('phone', '')
+            genres = request.form.getlist('genres')
+            address = request.form.get('address', '')
+            facebook_link = request.form.get('facebook_link', '')
+            image_link = request.form.get('image_link', '')
+            website_link = request.form.get('website_link', '')
+            seeking_talent = request.form.get('seeking_talent', '')
+            if seeking_talent == 'y':
+                seeking_talent = True
+            else:
+                seeking_talent = False
+            seeking_description = request.form.get('seeking_description', '')
+
+            # Grab the venue object
+            venue = Venue.query.filter_by(id=venue_id).first()
+
+            # Modify the values of the venue entry.
+            venue.name = name
+            venue.city = city
+            venue.state = state
+            venue.address = address
+            venue.phone = phone
+            venue.facebook_link = facebook_link
+            venue.image_link = image_link
+            venue.website_link = website_link
+            venue.looking_for_talent = seeking_talent
+            venue.seeking_description = seeking_description
+
+            # Clear the genre's associated with the venue to make way for new ones.
+            venue.genres.clear()
+
+            # Make a genre object for each given genre.
+            for genre_instance in genres:
+                db_genre_instance = Genre(name=genre_instance)
+                venue.genres.append(db_genre_instance)
+
+            print("1")
+            db.session.commit()
+        except Exception as e:
+            error = True
+            caught_exception = e.args[0]
+            tb = traceback.format_exc()
+            db.session.rollback()
+            print(sys.exc_info())
+        finally:
+            db.session.close()
+    else:
+        error = True
+    if error:
+        form_errors = formset.errors
+        message = 'An error occurred. venue ' + request.form.get('name', '') + ' could not be modified:'
+        for error_item in form_errors:
+            message = message + ', \n'
+            message = message + form_errors[error_item][0]
+        if caught_exception:
+            message = message + ', \n'
+            message = message + caught_exception
+        flash(message)
+    else:
+        # on successful db insert, flash success
+        flash('Venue ' + request.form['name'] + ' was successfully modified!')
+
+    return redirect(url_for('show_venue', venue_id=venue_id, form=formset))
 
 #  Create Artist
 #  ----------------------------------------------------------------
@@ -593,7 +767,7 @@ def create_artist_submission():
                 seeking_venue = False
             seeking_description = request.form.get('seeking_description', '')
 
-            # Make a venue object
+            # Make a artist object
             artist = Artist(name=name,
                             city=city,
                             state=state,
