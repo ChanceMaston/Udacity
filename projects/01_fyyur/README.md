@@ -174,7 +174,7 @@ pip3 install -r requirements.txt  # Depending on your system setup
 
 5. **Run the development server:**
 ```
-export FLASK_APP=myapp
+export FLASK_APP=app
 export FLASK_ENV=development # enables debug mode
 flask db upgrade  # Sets up the initial database, including the genres
 python3 app.py
