@@ -168,6 +168,8 @@ source env/Scripts/activate
 4. **Install the dependencies:**
 ```
 pip install -r requirements.txt
+# OR
+pip3 install -r requirements.txt  # Depending on your system setup
 ```
 
 5. **Run the development server:**
