@@ -12,7 +12,7 @@ BOOKS_PER_SHELF = 8
 #   - As you're creating endpoints, define them and then search for 'TODO' within the frontend to update the endpoints there. 
 #     If you do not update the endpoints, the lab will not work - of no fault of your API code! 
 #   - Make sure for each route that you're thinking through when to abort and with which kind of error 
-#   - If you change any of the response body keys, make sure you update the frontend to correspond. 
+#   - If you change any of the response body keys, make sure you update the frontend to correspond.  
 
 def create_app(test_config=None):
   # create and configure the app
