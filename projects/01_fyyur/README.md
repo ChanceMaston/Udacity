@@ -157,7 +157,7 @@ git push -u origin master
 
 3. **Initialize and activate a virtualenv using:**
 ```
-python -m virtualenv env
+python3 -m virtualenv env
 source env/bin/activate
 ```
 >**Note** - In Windows, the `env` does not have a `bin` directory. Therefore, you'd use the analogous command shown below:
@@ -174,6 +174,7 @@ pip install -r requirements.txt
 ```
 export FLASK_APP=myapp
 export FLASK_ENV=development # enables debug mode
+flask db upgrade  # Sets up the initial database, including the genres
 python3 app.py
 ```
 
