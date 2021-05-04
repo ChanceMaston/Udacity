@@ -18,6 +18,13 @@ class TriviaTestCase(unittest.TestCase):
         self.database_path = "postgres://{}/{}".format('localhost:5432', self.database_name)
         setup_db(self.app, self.database_path)
 
+        self.new_question = {
+            'question': 'What famous Japanese movie involves several people giving differing avvounts of a death in the woods>',
+            'answer': 'Rashomon',
+            'category': 5,
+            'difficulty': 2
+        }
+
         # binds the app to the current context
         with self.app.app_context():
             self.db = SQLAlchemy()
@@ -76,7 +83,7 @@ class TriviaTestCase(unittest.TestCase):
         self.assertTrue(len(data['questions']))
         self.assertEqual(question, None)
 
-    def test_delete_question_404_question_does_not_exist(self):
+    def test_delete_question_422_question_does_not_exist(self):
         res = self.client().delete('/questions/1000')
         data = json.loads(res.data)
 
@@ -84,7 +91,23 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['success'], False)
         self.assertEqual(data['message'], 'unprocessable')
 
+    def test_create_new_question_pass(self):
+        res = self.client().post('/questions', json=self.new_question)
+        data = json.loads(res.data)
 
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(data['success'], True)
+        self.assertTrue(data['created'])
+        self.assertTrue(len(data['questions']))
+
+    def test_create_new_question_fail_405_creation_not_allowed(self):
+        res = self.client().post('/questions/1000', json=self.new_question)
+        print(res)
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 405)
+        self.assertEqual(data['success'], False)
+        self.assertEqual(data['message'], 'method not allowed')
 
     """
     TODO
