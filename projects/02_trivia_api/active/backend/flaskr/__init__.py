@@ -45,8 +45,6 @@ def create_app(test_config=None):
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         return response
 
-
-
     @app.route('/categories')
     def retrieve_categories():
         selection = Category.query.order_by(Category.id).all()
@@ -76,13 +74,6 @@ def create_app(test_config=None):
                         'current_category': 'ALL'
                         })
 
-    '''
-    @TODO: 
-    Create an endpoint to DELETE question using a question ID. 
-    
-    TEST: When you click the trash icon next to a question, the question will be removed.
-    This removal will persist in the database and when you refresh the page. 
-    '''
     @app.route('/questions/<int:question_id>', methods=['DELETE'])
     def delete_question(question_id):
         try:
@@ -104,16 +95,6 @@ def create_app(test_config=None):
         except:
             abort(422)
 
-    '''
-    @TODO: 
-    Create an endpoint to POST a new question, 
-    which will require the question and answer text, 
-    category, and difficulty score.
-    
-    TEST: When you submit a question on the "Add" tab, 
-    the form will clear and the question will appear at the end of the last page
-    of the questions list in the "List" tab.  
-    '''
     @app.route('/questions', methods=['POST'])
     def create_question():
         body = request.get_json()
@@ -122,22 +103,34 @@ def create_app(test_config=None):
         new_answer = body.get('answer', None)
         new_category = body.get('category', None)
         new_difficulty = body.get('difficulty', None)
+        search = body.get('searchTerm', None)
 
         try:
-           question = Question(question=new_question,
-                               answer=new_answer,
-                               category=new_category,
-                               difficulty=new_difficulty)
-           question.insert()
+            if search:
+                selection = Question.query.order_by(Question.id).filter(Question.question.ilike('%{}%'.format(search)))
+                current_questions = paginate_questions(request, selection)
 
-           selection = Question.query.order_by(Question.id).all()
-           current_questions = paginate_questions(request, selection)
+                return jsonify({
+                    'success': True,
+                    'questions': current_questions,
+                    'total_questions': len(selection.all()),
+                    'current_category': 'ALL'
+                })
+            else:
+               question = Question(question=new_question,
+                                   answer=new_answer,
+                                   category=new_category,
+                                   difficulty=new_difficulty)
+               question.insert()
 
-           return jsonify({
-               'success': True,
-               'created': question.id,
-               'questions': current_questions,
-               'total_questions': len(Question.query.all())
+               selection = Question.query.order_by(Question.id).all()
+               current_questions = paginate_questions(request, selection)
+
+               return jsonify({
+                   'success': True,
+                   'created': question.id,
+                   'questions': current_questions,
+                   'total_questions': len(Question.query.all())
            })
         except:
             abort(422)
@@ -187,6 +180,14 @@ def create_app(test_config=None):
             "error": 404,
             "message": "resource not found"
         }), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(error):
+        return jsonify({
+            "success": False,
+            "error": 405,
+            "message": "method not allowed"
+        }), 405
 
     @app.errorhandler(422)
     def unprocessable(error):

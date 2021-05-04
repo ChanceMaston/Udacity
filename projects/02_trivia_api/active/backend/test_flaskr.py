@@ -102,12 +102,29 @@ class TriviaTestCase(unittest.TestCase):
 
     def test_create_new_question_fail_405_creation_not_allowed(self):
         res = self.client().post('/questions/1000', json=self.new_question)
-        print(res)
         data = json.loads(res.data)
 
         self.assertEqual(res.status_code, 405)
         self.assertEqual(data['success'], False)
         self.assertEqual(data['message'], 'method not allowed')
+
+    def test_get_question_search_with_results_pass(self):
+        res = self.client().post('/questions', json={'searchTerm': 'soccer'})
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(data['success'], True)
+        self.assertTrue(data['total_questions'])
+        self.assertEqual(len(data['questions']), 2)
+
+    def test_get_question_search_with_results_fail_200(self):
+        res = self.client().post('/questions', json={'searchTerm': 'applejacks'})
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(data['success'], True)
+        self.assertEqual(data['total_questions'], 0)
+        self.assertEqual(len(data['questions']), 0)
 
     """
     TODO
