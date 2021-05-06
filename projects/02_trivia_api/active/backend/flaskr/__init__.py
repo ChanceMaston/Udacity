@@ -95,7 +95,7 @@ def create_app(test_config=None):
         except:
             abort(422)
 
-    @app.route('/questions', methods=['POST'])
+    @app.route('/questions', methods=['POST', 'PUT'])
     def create_question():
         body = request.get_json()
 
@@ -135,44 +135,52 @@ def create_app(test_config=None):
         except:
             abort(422)
 
-    '''
-    @TODO: 
-    Create a POST endpoint to get questions based on a search term. 
-    It should return any questions for whom the search term 
-    is a substring of the question. 
-    
-    TEST: Search by any phrase. The questions list will update to include 
-    only question that include that string within their question. 
-    Try using the word "title" to start. 
-    '''
+    @app.route('/categories/<int:category_id>/questions')
+    def retrieve_questions_by_category(category_id):
+        selection = Question.query.filter_by(category=str(category_id)).all()
+        current_question = paginate_questions(request, selection)
+        category = Category.query.filter_by(id=category_id).first()
+        if len(current_question) == 0:
+            abort(404)
 
-    '''
-    @TODO: 
-    Create a GET endpoint to get questions based on category. 
-    
-    TEST: In the "List" tab / main screen, clicking on one of the 
-    categories in the left column will cause only questions of that 
-    category to be shown. 
-    '''
+        return jsonify({'questions': current_question,
+                        'total_questions': len(selection),
+                        'current_category': category.type
+                        })
+
+    @app.route('/quizzes', methods=['POST'])
+    def play_quizzes():
+        body = request.get_json()
+        #  page = request.args.get('page', 1, type=int)
+        all_category = {'id':0, 'type': 'ALL'}
+        category = body.get('quiz_category', all_category)
+        previous_questions = body.get('previous_questions', [])
+
+        # Get a list of questions based on the category
+        if category['id'] == 0:
+            # All categories chosen
+            selection = Question.query.all()
+        else:
+            selection = Question.query.filter_by(category=str(category['id'])).all()
+
+        # Make new list based on selection that does not overlap with previous questions:
+        new_selection = []
+        for question_ins in selection:
+            if question_ins.id in previous_questions:
+                pass
+            else:
+                new_selection.append(question_ins)
+
+        if len(new_selection) == 0:
+            new_question = False
+            return jsonify({'question': new_question})
+        else:
+            # Now, pick a random question from the remaining questions.
+            question_index = random.randint(0, (len(new_selection)-1))
+            new_question = new_selection[question_index]
+            return jsonify({'question': new_question.format()})
 
 
-    '''
-    @TODO: 
-    Create a POST endpoint to get questions to play the quiz. 
-    This endpoint should take category and previous question parameters 
-    and return a random questions within the given category, 
-    if provided, and that is not one of the previous questions. 
-    
-    TEST: In the "Play" tab, after a user selects "All" or a category,
-    one question at a time is displayed, the user is allowed to answer
-    and shown whether they were correct or not. 
-    '''
-
-    '''
-    @TODO: 
-    Create error handlers for all expected errors 
-    including 404 and 422. 
-    '''
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({
