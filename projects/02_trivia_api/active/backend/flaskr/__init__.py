@@ -109,6 +109,7 @@ def create_app(test_config=None):
             if search:
                 selection = Question.query.order_by(Question.id).filter(Question.question.ilike('%{}%'.format(search)))
                 current_questions = paginate_questions(request, selection)
+                print(current_questions)
 
                 return jsonify({
                     'success': True,
@@ -204,6 +205,14 @@ def create_app(test_config=None):
             "error": 422,
             "message": "unprocessable"
         }), 422
+
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        return jsonify({
+            "success": False,
+            "error": 500,
+            "message": "internal_server_error"
+        }), 500
   
     return app
 
