@@ -86,7 +86,7 @@ def edit_drink(jwt, drink_id):
             selected_drink.title = body.get('title')
 
         if 'recipe' in body:
-            selected_drink.recipe = body.get('recipe')
+            selected_drink.recipe = json.dumps(body.get('recipe'))
 
         selected_drink.update()
 
