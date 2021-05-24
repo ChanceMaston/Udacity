@@ -8,6 +8,7 @@ from urllib.request import urlopen
 AUTH0_DOMAIN = 'fsnd-cmaston.us.auth0.com'
 ALGORITHMS = ['RS256']
 API_AUDIENCE = 'coffee_menu'
+CLIENT_ID = 'xrAw9xNsFKFhThrmoJkDlqvs0Di96LtV'
 
 ## AuthError Exception
 '''
